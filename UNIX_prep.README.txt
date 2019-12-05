@@ -1,0 +1,43 @@
+# Unix commands to convert public data into 'raw' data for final project
+# call peaks with SEACR - bam files public from xenbase
+# k27ac
+samtools sort -n /home/wap22/xlallo/data_files/chip_seq/cutNrun/chip_2_27_19/st8/k27ac/hisat2/output.bam > k27ac_test/k27ac_PE.bam
+bedtools bamtobed -bedpe -i k27ac_test/k27ac_PE.bam > k27ac_test/k27ac_test.bed 2>/dev/null
+awk '$1==$4 && $6-$2 < 1000 {print $0}' k27ac_test/k27ac_test.bed > k27ac_test/k27ac_test.clean.bed
+cut -f 1,2,6 k27ac_test/k27ac_test.clean.bed | sort -k1,1 -k2,2n -k3,3n > k27ac_test/k27ac_test.fragments.bed
+bedtools genomecov -bg -i k27ac_test/k27ac_test.fragments.bed -g /data/genomes/xenLae9.2/sequence/chr_sizes.txt > k27ac_test/k27ac_test.fragments.bedgraph
+# background
+samtools sort -n /home/wap22/xlallo/data_files/chip_seq/cutNrun/chip_2_27_19/st8/no_ab/hisat2/output.bam > k27ac_test/noab_PE.bam
+bedtools bamtobed -bedpe -i k27ac_test/noab_PE.bam > k27ac_test/noab_test.bed 2>/dev/null
+awk '$1==$4 && $6-$2 < 1000 {print $0}' k27ac_test/noab_test.bed > k27ac_test/noab_test.clean.bed
+cut -f 1,2,6 k27ac_test/noab_test.clean.bed | sort -k1,1 -k2,2n -k3,3n > k27ac_test/noab_test.fragments.bed
+bedtools genomecov -bg -i k27ac_test/noab_test.fragments.bed -g /data/genomes/xenLae9.2/sequence/chr_sizes.txt > k27ac_test/noab_test.fragments.bedgraph
+# call peaks
+bash SEACR/SEACR_1.2.sh k27ac_test/k27ac_test.fragments.bedgraph k27ac_test/noab_test.fragments.bedgraph norm stringent k27ac_test
+# trim output down to enhancer bed files
+cut -f1,2,3,6 k27ac_test.stringent.bed > enhancers.bed
+# identify partner regions on the other genome
+liftOver -minMatch=0.1 enhancers.bed /home/wap22/alignment/laeL_v_laeS_9.2/alignment_1v1/xlL_xlS_med.liftOver.chain enhancers_syn.bed unmapped
+# separate enhancers and syntenic regions into individual files
+# both means enhancers and syntenic regions are marked with k27ac - therefore both are enhancers
+# diff means the enhancers are marked but the syntenic region is not - differentially marked then
+bedtools intersect -u -a enhancers_syn.bed -b enhancers.bed > bothsyn.bed
+join -j4 -t $'\t' -o 1.1,1.2,1.3,1.4 <(sort -k4,4 enhancers.bed) <(sort -k4,4 bothsyn.bed) > both.bed
+bedtools intersect -v -a enhancers_syn.bed -b enhancers.bed > diffsyn.bed
+join -j4 -t $'\t' -o 1.1,1.2,1.3,1.4 <(sort -k4,4 enhancers.bed) <(sort -k4,4 diffsyn.bed) > diff.bed
+# organization
+mkdir enhancers
+mv enhancers.bed enhancers_syn.bed unmapped enhancers/
+mv both.bed bothsyn.bed diff.bed diffsyn.bed enhancers/
+# convert bedfiles to fasta files
+mkdir fasta
+bedtools getfasta -name -fo fasta/both.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed enhancers/both.bed
+bedtools getfasta -name -fo fasta/bothsyn.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed enhancers/bothsyn.bed
+bedtools getfasta -name -fo fasta/diff.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed enhancers/diff.bed
+bedtools getfasta -name -fo fasta/diffsyn.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed enhancers/diffsyn.bed
+# scan for motifs with homer2
+# THIS OUTPUT IS THE RAW INPUT FOR THE FINAL PROJECT
+homer2 find -i fasta/both.fa -o both.motifs -m /opt/homer/data/knownTFs/vertebrates/all.motifs -mscore
+homer2 find -i fasta/bothsyn.fa -o bothsyn.motifs -m /opt/homer/data/knownTFs/vertebrates/all.motifs -mscore
+homer2 find -i fasta/diff.fa -o diff.motifs -m /opt/homer/data/knownTFs/vertebrates/all.motifs -mscore
+homer2 find -i fasta/diffsyn.fa -o diffsyn.motifs -m /opt/homer/data/knownTFs/vertebrates/all.motifs -mscore
