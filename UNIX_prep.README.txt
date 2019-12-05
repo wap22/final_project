@@ -29,15 +29,22 @@ join -j4 -t $'\t' -o 1.1,1.2,1.3,1.4 <(sort -k4,4 enhancers.bed) <(sort -k4,4 di
 mkdir enhancers
 mv enhancers.bed enhancers_syn.bed unmapped enhancers/
 mv both.bed bothsyn.bed diff.bed diffsyn.bed enhancers/
+# select 1000 random pairs
+mkdir samples
+sort -R enhancers/both.bed | head -n 1000 > samples/both.sample.bed
+sort -R enhancers/diff.bed | head -n 1000 > samples/diff.sample.bed
+join -j4 -t $'\t' -o 1.1,1.2,1.3,1.4 <(sort -k4,4 enhancers/bothsyn.bed) <(sort -k4,4 samples/both.sample.bed) > samples/bothsyn.sample.bed
+join -j4 -t $'\t' -o 1.1,1.2,1.3,1.4 <(sort -k4,4 enhancers/diffsyn.bed) <(sort -k4,4 samples/diff.sample.bed) > samples/diffsyn.sample.bed
 # convert bedfiles to fasta files
 mkdir fasta
-bedtools getfasta -name -fo fasta/both.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed enhancers/both.bed
-bedtools getfasta -name -fo fasta/bothsyn.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed enhancers/bothsyn.bed
-bedtools getfasta -name -fo fasta/diff.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed enhancers/diff.bed
-bedtools getfasta -name -fo fasta/diffsyn.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed enhancers/diffsyn.bed
+bedtools getfasta -name -fo fasta/both.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed samples/both.sample.bed
+bedtools getfasta -name -fo fasta/bothsyn.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed samples/bothsyn.sample.bed
+bedtools getfasta -name -fo fasta/diff.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed samples/diff.sample.bed
+bedtools getfasta -name -fo fasta/diffsyn.fa -fi /data/genomes/xenLae9.2/sequence/genome.fa -bed samples/diffsyn.sample.bed
 # scan for motifs with homer2
 # THIS OUTPUT IS THE RAW INPUT FOR THE FINAL PROJECT
-homer2 find -i fasta/both.fa -o both.motifs -m /opt/homer/data/knownTFs/vertebrates/all.motifs -mscore
-homer2 find -i fasta/bothsyn.fa -o bothsyn.motifs -m /opt/homer/data/knownTFs/vertebrates/all.motifs -mscore
-homer2 find -i fasta/diff.fa -o diff.motifs -m /opt/homer/data/knownTFs/vertebrates/all.motifs -mscore
-homer2 find -i fasta/diffsyn.fa -o diffsyn.motifs -m /opt/homer/data/knownTFs/vertebrates/all.motifs -mscore
+homer2 find -i fasta/both.fa -o both.motifs -m /opt/homer/data/knownTFs/vertebrates/known.motifs -mscore
+homer2 find -i fasta/bothsyn.fa -o bothsyn.motifs -m /opt/homer/data/knownTFs/vertebrates/known.motifs -mscore
+homer2 find -i fasta/diff.fa -o diff.motifs -m /opt/homer/data/knownTFs/vertebrates/known.motifs -mscore
+homer2 find -i fasta/diffsyn.fa -o diffsyn.motifs -m /opt/homer/data/knownTFs/vertebrates/known.motifs -mscore
+
